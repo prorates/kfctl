@@ -19,6 +19,7 @@ package kustomize
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -183,7 +184,7 @@ func (kustomize *kustomize) render(app kfconfig.Application) ([]byte, error) {
 			}
 		}
 		kfDefRes := schema.GroupVersionResource{Group: "kfdef.apps.kubeflow.org", Version: "v1", Resource: "kfdefs"}
-		instance, err := dyn.Resource(kfDefRes).Namespace(kustomize.kfDef.GetNamespace()).Get(kustomize.kfDef.GetName(), metav1.GetOptions{})
+		instance, err := dyn.Resource(kfDefRes).Namespace(kustomize.kfDef.GetNamespace()).Get(context.Background(), kustomize.kfDef.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return nil, &kfapisv3.KfError{
 				Code:    int(kfapisv3.INTERNAL_ERROR),
@@ -328,11 +329,11 @@ func (kustomize *kustomize) deleteGlobalResources() error {
 			Message: fmt.Sprintf("couldn't get apiextensions client: %v", err),
 		}
 	}
-	do := &metav1.DeleteOptions{}
+	do := metav1.DeleteOptions{}
 	lo := metav1.ListOptions{
 		LabelSelector: kftypesv3.DefaultAppLabel + "=" + kustomize.kfDef.Name,
 	}
-	crdsErr := apiextclientset.CustomResourceDefinitions().DeleteCollection(do, lo)
+	crdsErr := apiextclientset.CustomResourceDefinitions().DeleteCollection(context.Background(), do, lo)
 	if crdsErr != nil {
 		return &kfapisv3.KfError{
 			Code:    int(kfapisv3.INVALID_ARGUMENT),
@@ -346,14 +347,14 @@ func (kustomize *kustomize) deleteGlobalResources() error {
 			Message: fmt.Sprintf("couldn't get rbac/v1 client: %v", err),
 		}
 	}
-	crbsErr := rbacclient.ClusterRoleBindings().DeleteCollection(do, lo)
+	crbsErr := rbacclient.ClusterRoleBindings().DeleteCollection(context.Background(), do, lo)
 	if crbsErr != nil {
 		return &kfapisv3.KfError{
 			Code:    int(kfapisv3.INVALID_ARGUMENT),
 			Message: fmt.Sprintf("couldn't delete clusterrolebindings: %v", crbsErr),
 		}
 	}
-	crsErr := rbacclient.ClusterRoles().DeleteCollection(do, lo)
+	crsErr := rbacclient.ClusterRoles().DeleteCollection(context.Background(), do, lo)
 	if crsErr != nil {
 		return &kfapisv3.KfError{
 			Code:    int(kfapisv3.INVALID_ARGUMENT),
@@ -480,7 +481,7 @@ func (kustomize *kustomize) Delete(resources kftypesv3.ResourceEnum) error {
 		}
 	}
 	namespace := kustomize.kfDef.Namespace
-	ns, nsMissingErr := corev1client.Namespaces().Get(namespace, metav1.GetOptions{})
+	ns, nsMissingErr := corev1client.Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if nsMissingErr == nil {
 		// if the func is called by the Kubeflow operator, validate it is installed through the operator
 		if byOperator {
@@ -493,7 +494,7 @@ func (kustomize *kustomize) Delete(resources kftypesv3.ResourceEnum) error {
 		}
 
 		log.Infof("Deleting namespace: %v", namespace)
-		nsErr := corev1client.Namespaces().Delete(ns.Name, metav1.NewDeleteOptions(int64(100)))
+		nsErr := corev1client.Namespaces().Delete(context.Background(), ns.Name, *metav1.NewDeleteOptions(int64(100)))
 		if nsErr != nil {
 			return &kfapisv3.KfError{
 				Code:    int(kfapisv3.INVALID_ARGUMENT),
@@ -1422,7 +1423,7 @@ func GenerateYamlWithOperatorAnnotation(resMap resmap.ResMap, instance *unstruct
 					Message: fmt.Sprintf("failed to create corev1 client: %v", err),
 				}
 			}
-			ns, err := corev1client.Namespaces().Get(m.GetName(), metav1.GetOptions{})
+			ns, err := corev1client.Namespaces().Get(context.Background(), m.GetName(), metav1.GetOptions{})
 			if err == nil {
 				log.Infof("Namespace %v already exists.", m.GetName())
 

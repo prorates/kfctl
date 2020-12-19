@@ -1,10 +1,15 @@
 package aws
 
 import (
+	"context"
 	"crypto/sha1"
 	"crypto/tls"
 	json "encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -15,9 +20,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	"net/http"
-	"net/url"
-	"strings"
 )
 
 const (
@@ -137,7 +139,8 @@ func (aws *Aws) createOrUpdateWebIdentityRole(oidcProviderArn, issuerUrl, roleNa
 
 // createOrUpdateK8sServiceAccount creates or updates k8s service account with annotation
 func (aws *Aws) createOrUpdateK8sServiceAccount(k8sClientset *clientset.Clientset, serviceAccountNamespace, serviceAccountName, iamRoleArn string) error {
-	existingSA, err := k8sClientset.CoreV1().ServiceAccounts(serviceAccountNamespace).Get(serviceAccountName, metav1.GetOptions{})
+	existingSA, err := k8sClientset.CoreV1().ServiceAccounts(serviceAccountNamespace).Get(
+		context.Background(), serviceAccountName, metav1.GetOptions{})
 	if err == nil {
 		log.Infof("Service account %v already exists", serviceAccountName)
 		if existingSA.Annotations == nil {
@@ -145,7 +148,8 @@ func (aws *Aws) createOrUpdateK8sServiceAccount(k8sClientset *clientset.Clientse
 		}
 
 		existingSA.Annotations[AWS_SERVICE_ACCOUNT_ANNOTATION_KEY] = iamRoleArn
-		_, err = k8sClientset.CoreV1().ServiceAccounts(serviceAccountNamespace).Update(existingSA)
+		_, err = k8sClientset.CoreV1().ServiceAccounts(serviceAccountNamespace).Update(
+			context.Background(), existingSA, metav1.UpdateOptions{})
 		if err != nil {
 			return &kfapis.KfError{
 				Code:    int(kfapis.INTERNAL_ERROR),
@@ -157,6 +161,7 @@ func (aws *Aws) createOrUpdateK8sServiceAccount(k8sClientset *clientset.Clientse
 
 	log.Infof("Can not find existing service account, creating %s/%s", serviceAccountNamespace, serviceAccountName)
 	_, err = k8sClientset.CoreV1().ServiceAccounts(serviceAccountNamespace).Create(
+		context.Background(),
 		&v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      serviceAccountName,
@@ -166,6 +171,7 @@ func (aws *Aws) createOrUpdateK8sServiceAccount(k8sClientset *clientset.Clientse
 				},
 			},
 		},
+		metav1.CreateOptions{},
 	)
 	if err == nil {
 		return nil

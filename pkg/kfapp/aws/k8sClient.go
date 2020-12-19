@@ -1,6 +1,10 @@
 package aws
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+
 	kfapis "github.com/kubeflow/kfctl/v3/pkg/apis"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -8,8 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"path/filepath"
 )
 
 // getK8sclient creates a Kubernetes client set
@@ -45,25 +47,27 @@ func homeDir() string {
 }
 
 func createNamespace(client *clientset.Clientset, namespace string) error {
-	_, err := client.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+	_, err := client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err == nil {
 		log.Infof("Namespace %v already exists...", namespace)
 		return nil
 	}
 	log.Infof("Creating namespace: %v", namespace)
 	_, err = client.CoreV1().Namespaces().Create(
+		context.Background(),
 		&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		},
+		metav1.CreateOptions{},
 	)
 
 	return err
 }
 
 func deleteNamespace(client *clientset.Clientset, namespace string) error {
-	_, err := client.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+	_, err := client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		log.Infof("Namespace %v does not exist, skip deleting", namespace)
 		return nil
@@ -71,7 +75,9 @@ func deleteNamespace(client *clientset.Clientset, namespace string) error {
 	log.Infof("Deleting namespace: %v", namespace)
 	background := metav1.DeletePropagationBackground
 	err = client.CoreV1().Namespaces().Delete(
-		namespace, &metav1.DeleteOptions{
+		context.Background(),
+		namespace,
+		metav1.DeleteOptions{
 			PropagationPolicy: &background,
 		},
 	)
@@ -88,7 +94,7 @@ func createSecret(client *clientset.Clientset, secretName string, namespace stri
 		Data: data,
 	}
 	log.Infof("Creating secret: %v/%v", namespace, secretName)
-	_, err := client.CoreV1().Secrets(namespace).Create(secret)
+	_, err := client.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err == nil {
 		return nil
 	} else {

@@ -1,7 +1,7 @@
 #**********************************************************************
 # Builder
 # Create a go runtime suitable for building and testing kfctl
-ARG GOLANG_VERSION=1.13.7
+ARG GOLANG_VERSION=1.15.6
 FROM golang:$GOLANG_VERSION as builder
 
 ARG BRANCH=master

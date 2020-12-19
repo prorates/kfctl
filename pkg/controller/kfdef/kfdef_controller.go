@@ -76,10 +76,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource KfDef
-	err = c.Watch(&source.Kind{Type: &kfdefv1.KfDef{}}, &handler.EnqueueRequestsFromMapFunc{
-		ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-			namespacedName := types.NamespacedName{Name: a.Meta.GetName(), Namespace: a.Meta.GetNamespace()}
-			finalizers := sets.NewString(a.Meta.GetFinalizers()...)
+	err = c.Watch(&source.Kind{Type: &kfdefv1.KfDef{}},
+		handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+			namespacedName := types.NamespacedName{Name: a.GetName(), Namespace: a.GetNamespace()}
+			finalizers := sets.NewString(a.GetFinalizers()...)
 			if !finalizers.Has(finalizer) {
 				// assume this is a CREATE event
 				log.Infof("Adding finalizer %v: %v.", finalizer, namespacedName)
@@ -98,10 +98,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				// let the UPDATE event request queue
 				return nil
 			}
-			log.Infof("Watch a change for KfDef CR: %v.%v.", a.Meta.GetName(), a.Meta.GetNamespace())
+			log.Infof("Watch a change for KfDef CR: %v.%v.", a.GetName(), a.GetNamespace())
 			return []reconcile.Request{{NamespacedName: namespacedName}}
 		}),
-	}, kfdefPredicates)
+		kfdefPredicates)
 	if err != nil {
 		return err
 	}
@@ -124,9 +124,9 @@ func watchKubeflowResources(c controller.Controller, r client.Client, watchedRes
 			Group:   t.Group,
 			Version: t.Version,
 		})
-		err := c.Watch(&source.Kind{Type: u}, &handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-				anns := a.Meta.GetAnnotations()
+		err := c.Watch(&source.Kind{Type: u},
+			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+				anns := a.GetAnnotations()
 				kfdefAnn := strings.Join([]string{kfutils.KfDefAnnotation, kfutils.KfDefInstance}, "/")
 				_, found := anns[kfdefAnn]
 				if found {
@@ -143,12 +143,12 @@ func watchKubeflowResources(c controller.Controller, r client.Client, watchedRes
 						// KfDef is being deleted
 						return nil
 					}
-					log.Infof("Watch a change for Kubeflow resource: %v.%v.", a.Meta.GetName(), a.Meta.GetNamespace())
+					log.Infof("Watch a change for Kubeflow resource: %v.%v.", a.GetName(), a.GetNamespace())
 					return []reconcile.Request{{NamespacedName: namespacedName}}
 				}
 				return nil
 			}),
-		}, ownedResourcePredicates)
+			ownedResourcePredicates)
 		if err != nil {
 			log.Errorf("Cannot create watch for resources %v %v/%v: %v.", t.Kind, t.Group, t.Version, err)
 		}
@@ -236,7 +236,7 @@ type ReconcileKfDef struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileKfDef) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileKfDef) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log.Infof("Reconciling KfDef resources. Request.Namespace: %v, Request.Name: %v.", request.Namespace, request.Name)
 
 	instance := &kfdefv1.KfDef{}
@@ -345,10 +345,10 @@ func (r *ReconcileKfDef) Reconcile(request reconcile.Request) (reconcile.Result,
 			if err != nil {
 				return reconcile.Result{}, nil
 			}
-			stop = make(chan struct{})
+			// stop = make(chan struct{})
 			go func() {
 				// Start the controller
-				if err := c.Start(stop); err != nil {
+				if err := c.Start(context.Background()); err != nil {
 					log.Error(err, "cannot run the 2nd Kubeflow controller")
 				}
 			}()

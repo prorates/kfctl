@@ -34,11 +34,10 @@ import (
 	"github.com/kubeflow/kfctl/v3/pkg/kfapp/coordinator"
 	"github.com/kubeflow/kfctl/v3/pkg/kfconfig"
 	kfconfigloaders "github.com/kubeflow/kfctl/v3/pkg/kfconfig/loaders"
-	applicationsv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	applicationsv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -309,7 +308,7 @@ func (upgrader *KfUpgrader) DeleteObsoleteResources(ns string) error {
 
 	log.Infof("Deleting resources in in namespace %v", ns)
 
-	objs := []runtime.Object{
+	objs := []client.Object{
 		&applicationsv1beta1.Application{},
 		&appsv1.Deployment{},
 		&appsv1.StatefulSet{},
@@ -327,7 +326,7 @@ func (upgrader *KfUpgrader) DeleteObsoleteResources(ns string) error {
 	return nil
 }
 
-func (upgrader *KfUpgrader) DeleteResources(ns string, obj runtime.Object) error {
+func (upgrader *KfUpgrader) DeleteResources(ns string, obj client.Object) error {
 	config := kftypesv3.GetConfig()
 	kubeClient, err := client.New(config, client.Options{})
 	objKind := reflect.TypeOf(obj)

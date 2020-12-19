@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 GCLOUD_PROJECT ?= kubeflow-images-public
-GOLANG_VERSION ?= 1.13.7
+GOLANG_VERSION ?= 1.15.6
 GOPATH ?= $(HOME)/go
 # To build without the cache set the environment variable
 # export DOCKER_BUILD_OPTS=--no-cache
@@ -34,6 +34,16 @@ OPERATOR_IMG ?= kubeflow-operator
 IMAGE_BUILDER ?= docker
 DOCKERFILE ?= Dockerfile
 OPERATOR_BINARY_NAME ?= $(shell basename ${PWD})
+
+BINDIR              := bin
+TOOLS_DIR           := tools
+TOOLS_BIN_DIR       := $(TOOLS_DIR)/bin
+
+# Binaries.
+DEEPCOPY_GEN        := $(TOOLS_BIN_DIR)/deepcopy-gen
+CONTROLLER_GEN      := $(TOOLS_BIN_DIR)/controller-gen
+GOLANGCI_LINT       := $(TOOLS_BIN_DIR)/golangci-lint
+KIND                := $(TOOLS_BIN_DIR)/kind
 
 # Location of junit file
 JUNIT_FILE ?= /tmp/report.xml
@@ -73,61 +83,51 @@ vet:
 generate:
 	@${GO} generate ./config ./pkg/apis/apps/kfdef/... ./pkg/utils/... ./pkg/kfapp/minikube ./pkg/kfapp/gcp/... ./cmd/kfctl/...
 
-${GOPATH}/bin/deepcopy-gen:
-	GO111MODULE=on ${GO} get k8s.io/code-generator/cmd/deepcopy-gen
+## --------------------------------------
+## Tooling Binaries
+## --------------------------------------
 
-config/zz_generated.deepcopy.go: config/types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/config -O zz_generated.deepcopy \
-	-p config
+$(DEEPCOPY_GEN): $(TOOLS_DIR)/go.mod # Build deepcopy-gen from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BINDIR)/deepcopy-gen k8s.io/code-generator/cmd/deepcopy-gen
 
-pkg/apis/apps/kfdef/v1alpha1/zz_generated.deepcopy.go: pkg/apis/apps/kfdef/v1alpha1/application_types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/apis/apps/kfdef/... -O zz_generated.deepcopy \
-		-p pkg/apis/apps/kfdef/v1alpha1/
+$(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BINDIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
-pkg/apis/apps/kfdef/v1beta1/zz_generated.deepcopy.go: pkg/apis/apps/kfdef/v1beta1/application_types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/apis/apps/kfdef/... -O zz_generated.deepcopy \
-		-p pkg/apis/apps/kfdef/v1beta1/
+$(GOLANGCI_LINT): $(TOOLS_DIR)/go.mod # Build golangci-lint from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BINDIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
 
-pkg/apis/apps/kfdef/v1/zz_generated.deepcopy.go: pkg/apis/apps/kfdef/v1/application_types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/apis/apps/kfdef/... -O zz_generated.deepcopy \
-		-p pkg/apis/apps/kfdef/v1/
+$(KIND): $(TOOLS_DIR)/go.mod # Build kind from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BINDIR)/kind sigs.k8s.io/kind
 
-pkg/apis/apps/plugins/gcp/v1alpha1/zz_generated.deepcopy.go: pkg/apis/apps/plugins/gcp/v1alpha1/types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/apis/apps/plugins/gcp/... -O zz_generated.deepcopy \
-		-p pkg/apis/apps/plugins/gcp/v1alpha1/
+.PHONY: install-tools
+install-tools: $(DEEPCOPY_GEN) $(CONTROLLER_GEN) $(GOLANGCI_LINT) $(KIND)
 
-pkg/apis/apps/plugins/aws/v1alpha1/zz_generated.deepcopy.go: pkg/apis/apps/plugins/aws/v1alpha1/types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/apis/apps/plugins/aws/... -O zz_generated.deepcopy \
-		-p pkg/apis/apps/plugins/aws/v1alpha1/
+## --------------------------------------
+## Generate
+## --------------------------------------
 
-pkg/kfconfig/zz_generated.deepcopy.go: pkg/kfconfig/types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/kfconfig/... -O zz_generated.deepcopy \
-		-p pkg/kfconfig/
+# ${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/config -O zz_generated.deepcopy \
 
-pkg/kfconfig/awsplugin/zz_generated.deepcopy.go: pkg/kfconfig/awsplugin/types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/kfconfig/awsplugin/... -O zz_generated.deepcopy \
-		-p pkg/kfconfig/awsplugin/
-
-pkg/kfconfig/gcpplugin/zz_generated.deepcopy.go: pkg/kfconfig/gcpplugin/types.go
-	${GOPATH}/bin/deepcopy-gen -h hack/boilerplate.go.txt -i github.com/kubeflow/kfctl/v3/pkg/kfconfig/gcpplugin/... -O zz_generated.deepcopy\
-		-p pkg/kfconfig/gcpplugin/
-
-deepcopy: ${GOPATH}/bin/deepcopy-gen config/zz_generated.deepcopy.go \
-	pkg/apis/apps/kfdef/v1alpha1/zz_generated.deepcopy.go \
-	pkg/apis/apps/kfdef/v1beta1/zz_generated.deepcopy.go \
-	pkg/apis/apps/kfdef/v1/zz_generated.deepcopy.go \
-	pkg/apis/apps/plugins/gcp/v1alpha1/zz_generated.deepcopy.go \
-	pkg/apis/apps/plugins/aws/v1alpha1/zz_generated.deepcopy.go \
-	pkg/kfconfig/zz_generated.deepcopy.go \
-	pkg/kfconfig/awsplugin/zz_generated.deepcopy.go \
-	pkg/kfconfig/gcpplugin/zz_generated.deepcopy.go
+.PHONY: deepcopy
+deepcopy: $(CONTROLLER_GEN)
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./config output:object:dir=./config output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/kfupgrade/v1alpha1 output:object:dir=./pkg/apis/apps/kfupgrade/v1alpha1 output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/kfconfig output:object:dir=./pkg/apis/apps/kfconfig output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/kfdef/v1alpha1 output:object:dir=./pkg/apis/apps/kfdef/v1alpha1 output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/kfdef/v1beta1 output:object:dir=./pkg/apis/apps/kfdef/v1beta1 output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/kfdef/v1 output:object:dir=./pkg/apis/apps/kfdef/v1 output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/plugins/aws/v1alpha1 output:object:dir=./pkg/apis/apps/plugins/aws/v1alpha1 output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/apps/plugins/gcp/v1alpha1 output:object:dir=./pkg/apis/apps/plugins/gcp/v1alpha1 output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/kfconfig output:object:dir=./pkg/kfconfig output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/kfconfig/awsplugin output:object:dir=./pkg/kfconfig/awsplugin output:none
+	GO111MODULE=on $(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/kfconfig/gcpplugin output:object:dir=./pkg/kfconfig/gcpplugin output:none
 
 build: build-kfctl
 
-build-kfctl: deepcopy generate fmt vet
+build-kfctl: deepcopy fmt vet
 	# TODO(swiftdiaries): figure out import conflict errors for windows
 	#CGO_ENABLED=0 GOOS=windows GOARCH=amd64 ${GO} build -gcflags '-N -l' -ldflags "-X main.VERSION=$(TAG)" -o bin/windows/kfctl.exe cmd/kfctl/main.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 ${GO} build -gcflags '-N -l' -ldflags "-X main.VERSION=${TAG}" -o bin/darwin/kfctl cmd/kfctl/main.go
+	#CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 ${GO} build -gcflags '-N -l' -ldflags "-X main.VERSION=${TAG}" -o bin/darwin/kfctl cmd/kfctl/main.go
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 ${GO} build -gcflags '-N -l' -ldflags "-X main.VERSION=$(TAG)" -o bin/linux/kfctl cmd/kfctl/main.go
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 ${GO} build -gcflags '-N -l' -ldflags "-X main.VERSION=$(TAG)" -o bin/arm64/kfctl cmd/kfctl/main.go
 	cp bin/$(ARCH)/kfctl bin/kfctl

@@ -40,9 +40,9 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	kubectlapply "k8s.io/kubernetes/pkg/kubectl/cmd/apply"
-	kubectldelete "k8s.io/kubernetes/pkg/kubectl/cmd/delete"
-	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
+	kubectlapply "k8s.io/kubectl/pkg/cmd/apply"
+	kubectldelete "k8s.io/kubectl/pkg/cmd/delete"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"math/rand"
 	netUrl "net/url"
 	"os"
@@ -298,7 +298,7 @@ func NewApply(namespace string, restConfig *rest.Config) (*Apply, error) {
 }
 
 func (a *Apply) IfNamespaceExist(name string) bool {
-	_, nsMissingErr := a.clientset.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
+	_, nsMissingErr := a.clientset.CoreV1().Namespaces().Get(context.Background(), name, metav1.GetOptions{})
 	if nsMissingErr != nil {
 		return false
 	}
@@ -364,24 +364,24 @@ func (a *Apply) init() error {
 	// allow for a success message operation to be specified at print time
 	o.ToPrinter = func(operation string) (printers.ResourcePrinter, error) {
 		o.PrintFlags.NamePrintFlags.Operation = operation
-		if o.DryRun {
-			err = o.PrintFlags.Complete("%s (dry run)")
-			if err != nil {
-				return nil, err
-			}
-		}
-		if o.ServerDryRun {
-			err = o.PrintFlags.Complete("%s (server dry run)")
-			if err != nil {
-				return nil, err
-			}
-		}
+		// 	if o.DryRun {
+		// 		err = o.PrintFlags.Complete("%s (dry run)")
+		// 		if err != nil {
+		// 			return nil, err
+		// 		}
+		// 	}
+		// 	if o.ServerDryRun {
+		// 		err = o.PrintFlags.Complete("%s (server dry run)")
+		// 		if err != nil {
+		// 			return nil, err
+		// 		}
+		// 	}
 		return o.PrintFlags.ToPrinter()
 	}
-	o.DiscoveryClient, err = f.ToDiscoveryClient()
-	if err != nil {
-		return err
-	}
+	// o.DiscoveryClient, err = f.ToDiscoveryClient()
+	// if err != nil {
+	// 	return err
+	// }
 	dynamicClient, err := f.DynamicClient()
 	if err != nil {
 		return err
@@ -419,9 +419,10 @@ func (a *Apply) patchNamespaceWithLabel(namespace string, labelKey string,
 	}
 	log.Infof("Labeling Namespace: %v", namespace)
 	_, err = a.clientset.CoreV1().Namespaces().Patch(
-		namespace,
+		context.Background(), namespace,
 		"application/strategic-merge-patch+json",
 		[]byte(labelPatchJSON),
+		metav1.PatchOptions{},
 	)
 	if err != nil {
 		return err
@@ -432,7 +433,7 @@ func (a *Apply) patchNamespaceWithLabel(namespace string, labelKey string,
 func (a *Apply) namespace(namespace string) error {
 	log.Infof(string(kftypes.NAMESPACE)+": %v", namespace)
 	namespaceInstance, nsMissingErr := a.clientset.CoreV1().Namespaces().Get(
-		namespace, metav1.GetOptions{},
+		context.Background(), namespace, metav1.GetOptions{},
 	)
 	if nsMissingErr != nil {
 		log.Infof("Creating namespace: %v", namespace)
@@ -445,7 +446,7 @@ func (a *Apply) namespace(namespace string) error {
 				},
 			},
 		}
-		_, nsErr := a.clientset.CoreV1().Namespaces().Create(nsSpec)
+		_, nsErr := a.clientset.CoreV1().Namespaces().Create(context.Background(), nsSpec, metav1.CreateOptions{})
 		if nsErr != nil {
 			return &kfapis.KfError{
 				Code: int(kfapis.INVALID_ARGUMENT),

@@ -1,20 +1,22 @@
 package utils
 
 import (
+	"context"
 	"encoding/base64"
 
 	"cloud.google.com/go/container/apiv1"
-	"golang.org/x/net/context"
+	gcontext "golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 	"k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-func BuildClusterConfig(ctx context.Context, token string, project string, zone string,
+func BuildClusterConfig(ctx gcontext.Context, token string, project string, zone string,
 	clusterID string) (*rest.Config, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: token,
@@ -73,7 +75,7 @@ func CreateK8sRoleBing(config *rest.Config, roleBinding *v1.ClusterRoleBinding) 
 	if err != nil {
 		return err
 	}
-	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(roleBinding)
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(context.Background(), roleBinding, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}

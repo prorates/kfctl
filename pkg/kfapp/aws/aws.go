@@ -17,6 +17,7 @@ limitations under the License.
 package aws
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -1068,7 +1069,7 @@ func (aws *Aws) setupOIDC() error {
 
 	if awsPluginSpec.Auth.Oidc != nil {
 		// Create OIDC Secret from clientId and clientSecret.
-		_, err = aws.k8sClient.CoreV1().Secrets(IstioNamespace).Get(ALB_OIDC_SECRET, metav1.GetOptions{})
+		_, err = aws.k8sClient.CoreV1().Secrets(IstioNamespace).Get(context.Background(), ALB_OIDC_SECRET, metav1.GetOptions{})
 		if err == nil {
 			log.Warnf("Secret %v already exists...", ALB_OIDC_SECRET)
 			return nil
