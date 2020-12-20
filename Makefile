@@ -12,38 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-GCLOUD_PROJECT ?= kubeflow-images-public
-GOLANG_VERSION ?= 1.15.6
-GOPATH ?= $(HOME)/go
-# To build without the cache set the environment variable
-# export DOCKER_BUILD_OPTS=--no-cache
-KFCTL_IMG ?= gcr.io/$(GCLOUD_PROJECT)/kfctl
-TAG ?= $(eval TAG := $(shell git describe --tags --long --always))$(TAG)
-REPO ?= $(shell echo $$(cd ../kubeflow && git config --get remote.origin.url) | sed 's/git@\(.*\):\(.*\).git$$/https:\/\/\1\/\2/')
-BRANCH ?= $(shell cd ../kubeflow && git branch | grep '^*' | awk '{print $$2}')
-KFCTL_TARGET ?= kfctl
-MOUNT_KUBE ?=  -v $(HOME)/.kube:/root/.kube
-MOUNT_GCP ?=  -v $(HOME)/.config:/root/.config
+GCLOUD_PROJECT       ?= kubeflow-images-public
+GOLANG_VERSION       ?= 1.15.6
+GOPATH               ?= $(HOME)/go
+KFCTL_IMG            ?= gcr.io/$(GCLOUD_PROJECT)/kfctl
+TAG                  ?= $(eval TAG := $(shell git describe --tags --long --always))$(TAG)
+REPO                 ?= $(shell echo $$(cd ../kubeflow && git config --get remote.origin.url) | sed 's/git@\(.*\):\(.*\).git$$/https:\/\/\1\/\2/')
+BRANCH               ?= $(shell cd ../kubeflow && git branch | grep '^*' | awk '{print $$2}')
+KFCTL_TARGET         ?= kfctl
+MOUNT_KUBE           ?=  -v $(HOME)/.kube:/root/.kube
+MOUNT_GCP            ?=  -v $(HOME)/.config:/root/.config
 # set to -V
-VERBOSE ?=
-PLUGINS_ENVIRONMENT ?= $(GOPATH)/src/github.com/kubeflow/kfctl/bin
+VERBOSE              ?=
+PLUGINS_ENVIRONMENT  ?= $(GOPATH)/src/github.com/kubeflow/kfctl/bin
 export GO111MODULE = on
 export GO = go
-ARCH ?= $(shell ${GO} env|grep GOOS|cut -d'=' -f2|tr -d '"')
-OPERATOR_IMG ?= kubeflow-operator
-IMAGE_BUILDER ?= docker
-DOCKERFILE ?= Dockerfile
+ARCH                 ?= $(shell ${GO} env|grep GOOS|cut -d'=' -f2|tr -d '"')
+OPERATOR_IMG         ?= kubeflow-operator
+IMAGE_BUILDER        ?= docker
+DOCKERFILE           ?= Dockerfile
+DOCKER_BUILD_OPTS    ?= --network=host
 OPERATOR_BINARY_NAME ?= $(shell basename ${PWD})
 
-BINDIR              := bin
-TOOLS_DIR           := tools
-TOOLS_BIN_DIR       := $(TOOLS_DIR)/bin
+BINDIR               := bin
+TOOLS_DIR            := tools
+TOOLS_BIN_DIR        := $(TOOLS_DIR)/bin
 
 # Binaries.
-DEEPCOPY_GEN        := $(TOOLS_BIN_DIR)/deepcopy-gen
-CONTROLLER_GEN      := $(TOOLS_BIN_DIR)/controller-gen
-GOLANGCI_LINT       := $(TOOLS_BIN_DIR)/golangci-lint
-KIND                := $(TOOLS_BIN_DIR)/kind
+DEEPCOPY_GEN         := $(TOOLS_BIN_DIR)/deepcopy-gen
+CONTROLLER_GEN       := $(TOOLS_BIN_DIR)/controller-gen
+GOLANGCI_LINT        := $(TOOLS_BIN_DIR)/golangci-lint
+KIND                 := $(TOOLS_BIN_DIR)/kind
 
 # Location of junit file
 JUNIT_FILE ?= /tmp/report.xml
@@ -209,6 +208,7 @@ push-to-github-release: build-kfctl-tgz
 
 build-kfctl-container:
 	DOCKER_BUILDKIT=1 docker build \
+                $(DOCKER_BUILD_OPTS) \
                 --build-arg REPO="$(REPO)" \
                 --build-arg BRANCH=$(BRANCH) \
 		--build-arg GOLANG_VERSION=$(GOLANG_VERSION) \
