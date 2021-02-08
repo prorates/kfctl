@@ -386,7 +386,7 @@ func (a *Apply) init() error {
 	if err != nil {
 		return err
 	}
-	o.DeleteOptions = o.DeleteFlags.ToOptions(dynamicClient, o.IOStreams)
+	o.DeleteOptions, err = o.DeleteFlags.ToOptions(dynamicClient, o.IOStreams)
 	o.OpenAPIPatch = true
 	o.OpenAPISchema, _ = f.OpenAPISchema()
 	o.Validator, err = f.Validator(false)
@@ -497,7 +497,7 @@ func (a *Apply) tempFile(data []byte) *os.File {
 }
 
 func (a *Apply) deleteFlags(usage string) *kubectldelete.DeleteFlags {
-	cascade := true
+	cascadeStrategy := "background"
 	gracePeriod := -1
 	// setup command defaults
 	all := false
@@ -512,18 +512,18 @@ func (a *Apply) deleteFlags(usage string) *kubectldelete.DeleteFlags {
 	filenames := []string{a.tmpfile.Name()}
 	recursive := false
 	return &kubectldelete.DeleteFlags{
-		FileNameFlags:  &genericclioptions.FileNameFlags{Usage: usage, Filenames: &filenames, Recursive: &recursive},
-		LabelSelector:  &labelSelector,
-		FieldSelector:  &fieldSelector,
-		Cascade:        &cascade,
-		GracePeriod:    &gracePeriod,
-		All:            &all,
-		Force:          &force,
-		IgnoreNotFound: &ignoreNotFound,
-		Now:            &now,
-		Timeout:        &timeout,
-		Wait:           &wait,
-		Output:         &output,
+		FileNameFlags:     &genericclioptions.FileNameFlags{Usage: usage, Filenames: &filenames, Recursive: &recursive},
+		LabelSelector:     &labelSelector,
+		FieldSelector:     &fieldSelector,
+		CascadingStrategy: &cascadeStrategy,
+		GracePeriod:       &gracePeriod,
+		All:               &all,
+		Force:             &force,
+		IgnoreNotFound:    &ignoreNotFound,
+		Now:               &now,
+		Timeout:           &timeout,
+		Wait:              &wait,
+		Output:            &output,
 	}
 }
 
